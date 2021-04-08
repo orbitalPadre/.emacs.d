@@ -1,5 +1,6 @@
 ;;; init.el -- emacs configuration file -*- lexical-binding: t-*-
 
+;;; Code:
 ;; garbage collection tuning
 (setq gc-cons-threshold (* 4 1024 1024))
 (setq gc-cons-percentage 0.3)
@@ -10,6 +11,11 @@
 	    (lambda ()
 	      (let ((elapsed (float-time (time-subtract (current-time) emacs-start-time))))
 		(message "[emacs initialized in %.3fs]" elapsed)))))
+
+(setq user-full-name    "first last"
+      user-mail-address "orbitalpadre@gmail.com")
+
+
 
 ;; custom file
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
@@ -31,6 +37,23 @@
   (package-install 'use-package))
 (use-package try :ensure t)
 (use-package which-key :ensure t :config (which-key-mode))
+
+(unless (package-installed-p 'irony)
+  (package-refresh-contents)
+  (package-install 'irony))
+
+;; irony-mode setup
+(add-hook 'c++-mode-hook 'irony-mode)
+(add-hook 'c-mode-hook 'irony-mode)
+(add-hook 'objc-mode-hook 'irony-mode)
+(add-hook 'irony-mode-hook 'irony-cdb-autosetup-compile-options)
+
+(unless (package-installed-p 'company-irony)
+  (package-refresh-contents)
+  (package-install 'company-irony))
+
+(eval-after-load 'company
+  '(add-to-list 'company-backends 'company-irony))
 
 (unless (package-installed-p 'markdown-mode)
   (package-refresh-contents)
@@ -128,6 +151,19 @@
 ;; text-mode
 (add-hook 'text-mode-hook #'visual-line-mode)
 
+;; silently delete excess backup versions
+(setq delete-old-versions t)
+
+;; keep only x backups
+(setq kept-old-versions 3)
+
+;; make emacs backup everytime I save
+(defun force-backup-of-buf ()
+  "Lie to emacs, telling it the current buffer has yet to be backed up"
+  (setq buffer-backed-up nil))
+
+(add-hook 'before-save-hook 'force-backup-of-buf)
+
 ;; gui tuning
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
@@ -156,6 +192,10 @@
        (file-name-as-directory (expand-file-name "autosaves" user-emacs-directory))))
   (setq auto-save-list-file-prefix (expand-file-name ".saves-" auto-save-dir))
   (setq auto-save-file-name-transforms (list (list ".*" (replace-quote auto-save-dir) t))))
+
+;; autosave when idle for 30 seconds or 300 keystrokes
+(setq auto-save-timeout  30
+      auto-save-interval 300)
 
 ;; use UTF-8
 (prefer-coding-system 'utf-8)
