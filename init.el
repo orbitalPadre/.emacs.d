@@ -1,203 +1,69 @@
-;;; init.el -- emacs configuration file -*- lexical-binding: t-*-
+;;; init.el --- -*- lexical-binding: t -*-
 
-;;; Code:
-;; garbage collection tuning
+;; tune the gc (garbage collection)
+;; default emacs gc settings are too conservative for modern machines
+;; making emacs spend too much time collecting garbage in alloc-heavy code
 (setq gc-cons-threshold (* 4 1024 1024))
 (setq gc-cons-percentage 0.3)
 
-;; startup info
-(let ((emacs-start-time (current-time)))
-  (add-hook 'emacs-startup-hook
-	    (lambda ()
-	      (let ((elapsed (float-time (time-subtract (current-time) emacs-start-time))))
-		(message "[emacs initialized in %.3fs]" elapsed)))))
-
-(setq user-full-name    "first last"
-      user-mail-address "orbitalpadre@gmail.com")
-
-
-
-;; custom file
+;; set custom file
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (when (file-exists-p custom-file)
   (load custom-file))
 
-;; prepare package archives
-;; melpa-stable needed for markdown-mode
-(require 'package)
-(add-to-list 'package-archives '("melpa"        . "https://melpa.org/packages/"))
-(add-to-list 'package-archives '("org"          . "https://orgmode.org/elpa/"))
-(add-to-list 'package-archives '("gnu"          . "https://elpa.gnu.org/packages/"))
-(add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/"))
-(setq package-enable-at-startup nil)
-(package-initialize)
+(setq user-full-name "first last"
+      user-mail-address "orbitalpadre@gmail.com")
 
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package))
-(use-package try :ensure t)
-(use-package which-key :ensure t :config (which-key-mode))
+;; always load newest bytecode
+(setq load-prefer-newer t)
 
-(unless (package-installed-p 'irony)
-  (package-refresh-contents)
-  (package-install 'irony))
+;; enable y/n answers
+(fset 'yes-or-no-p 'y-or-n-p)
 
-;; irony-mode setup
-(add-hook 'c++-mode-hook 'irony-mode)
-(add-hook 'c-mode-hook 'irony-mode)
-(add-hook 'objc-mode-hook 'irony-mode)
-(add-hook 'irony-mode-hook 'irony-cdb-autosetup-compile-options)
+(setq-default indent-tabs-mode nil)
+(setq-default tab-width 4)
 
-(unless (package-installed-p 'company-irony)
-  (package-refresh-contents)
-  (package-install 'company-irony))
+;; newline at end of files
+(setq require-final-newline t)
 
-(eval-after-load 'company
-  '(add-to-list 'company-backends 'company-irony))
+;; wrap lines at 80 characters
+(setq-default fill-columm 80)
 
-(unless (package-installed-p 'markdown-mode)
-  (package-refresh-contents)
-  (package-install 'markdown-mode))
+;; delete selection with a keypress
+(delete-selection-mode t)
 
-(use-package markdown-mode
-  :ensure t
-  :commands (markdown-mode gfm-mode)
-  :mode (("README\\.md\\'" . gfm-mode)
-	 ("\\.md\\'"       . markdown-mode)
-	 ("\\.markdown\\'" . markdown-mode))
-  :init (setq markdown-command "multimarkdown"))
+;; disable gui stuff
+(if (fboundp 'tool-bar-mode)
+    (tool-bar-mode -1))
+(if (fboundp 'scroll-bar-mode)
+    (scroll-bar-mode -1))
+(if (fboundp 'horizontal-scroll-bar-mode)
+    (horizontal-scroll-bar-mode -1))
+(if (fboundp 'menu-bar-mode)
+    (menu-bar-mode -1))
 
-;; download & enable magit
-(unless (package-installed-p 'magit)
-  (package-refresh-contents)
-  (package-install 'magit))
+(blink-cursor-mode -1)
 
-(use-package magit
-  :ensure t
-  :init
-  (progn (bind-key "C-x g" 'magit-status)))
+(setq use-file-dialog nil)
+(setq use-dialog-box nil)
 
-(require 'magit)
+;; start emacs with empty scratch buffer
+(setq inhibit-splash-screen t)
+(setq initial-scratch-message "")
 
-;; download & enable evil
-(unless (package-installed-p 'evil)
-  (package-refresh-contents)
-  (package-install 'evil))
-(require 'evil)
-(setq evil-undo-system 'undo-fu)
-(evil-mode 1)
+;; set the font
+(set-face-attribute 'default nil :family "JetBrains Mono" :height 100)
 
-;; download & enable undo-fu
-(unless (package-installed-p 'undo-fu)
-  (package-refresh-contents)
-  (package-install 'undo-fu))
-(require 'undo-fu)
-
-;; download & enable yasnippet
-(unless (package-installed-p 'yasnippet)
-  (package-refresh-contents)
-  (package-install 'yasnippet))
-(require 'yasnippet)
-(yas-global-mode 1)
-
-(unless (package-installed-p 'auto-complete)
-  (package-refresh-contents)
-  (package-install 'auto-complete))
-(require 'auto-complete)
-
-(use-package auto-complete
-  :ensure t
-  :init
-  (progn
-    (ac-config-default)
-    (global-auto-complete-mode t)))
-
-(unless (package-installed-p 'flycheck)
-  (package-refresh-contents)
-  (package-install 'flycheck))
-(require 'flycheck)
-
-(use-package flycheck
-  :ensure t
-  :init
-  (global-flycheck-mode t))
-
-(unless (package-installed-p 'modern-cpp-font-lock)
-  (package-refresh-contents)
-  (package-install 'modern-cpp-font-lock))
-(require 'modern-cpp-font-lock)
-
-(use-package modern-cpp-font-lock
-  :ensure t)
-
-;; compilation for cpp code
-(defun code-compile ()
-  (interactive)
-  (unless (file-exists-p "Makefile")
-    (set (make-local-variable 'compile-command)
-	 (let ((file (file-name-nondirectory buffer-file-name)))
-	   (format "%s -o %s %s"
-		   (if (equal (file-name-extension file) "cpp") "g++" "gcc")
-		   (file-name-sans-extension file)
-		   file)))
-    (compile compile-command)))
-
-(global-set-key [f9] 'code-compile)
-
-;; search highlighting
-(setq search-highlight t)
-(setq query-replace-highlight t)
-
-;; text-mode
-(add-hook 'text-mode-hook #'visual-line-mode)
-
-;; silently delete excess backup versions
-(setq delete-old-versions t)
-
-;; keep only x backups
-(setq kept-old-versions 3)
-
-;; make emacs backup everytime I save
-(defun force-backup-of-buf ()
-  "Lie to emacs, telling it the current buffer has yet to be backed up"
-  (setq buffer-backed-up nil))
-
-(add-hook 'before-save-hook 'force-backup-of-buf)
-
-;; gui tuning
-(tool-bar-mode -1)
-(scroll-bar-mode -1)
-(menu-bar-mode -1)
-
-;; font?
-(set-face-attribute 'default nil :font "JetBrains Mono 11")
-
-;; line-numbers
-(when (version<= "26.0.50" emacs-version)
-  (global-display-line-numbers-mode))
-
-;; move cursor where it was on last visit
-(save-place-mode t)
-
-;; show parenthesis
-(show-paren-mode 1)
-(setq show-paren-delay 0)
-
-
-
-;; disable lock files, backup files and move autosave files to better location
+;; disable lock-files and backup files
 (setq create-lockfiles nil)
 (setq make-backup-files nil)
-(let ((auto-save-dir
-       (file-name-as-directory (expand-file-name "autosaves" user-emacs-directory))))
+
+;; move auto-save files to saner location
+(let ((auto-save-dir (file-name-as-directory (expand-file-name "autosave" user-emacs-directory))))
   (setq auto-save-list-file-prefix (expand-file-name ".saves-" auto-save-dir))
   (setq auto-save-file-name-transforms (list (list ".*" (replace-quote auto-save-dir) t))))
 
-;; autosave when idle for 30 seconds or 300 keystrokes
-(setq auto-save-timeout  30
-      auto-save-interval 300)
-
-;; use UTF-8
+;; default to UTF-8
 (prefer-coding-system 'utf-8)
 (set-language-environment "UTF-8")
 (setq locale-coding-system 'utf-8)
@@ -210,20 +76,16 @@
 (setq scroll-conservatively 100000)
 (setq scroll-preserve-screen-position 'always)
 
-;; clipboard
-(setq-default select-active-regions nil)
-(when (boundp 'x-select-enable-primary)
-  (setq x-select-enable-primary nil))
-
 ;; set undo limits
 (setq undo-limit (* 16 1024 1024))
 (setq undo-strong-limit (* 24 1024 1024))
 (setq undo-outer-limit (* 64 1024 1024))
 
-;; do not disable commands?
+
+;; do not disable commands
 (setq disabled-command-function nil)
 
-;; disable version control
+;; disable vc (version control)
 (setq vc-handled-backends '())
 
-;;; init.el ends here
+;;; end of init.el
